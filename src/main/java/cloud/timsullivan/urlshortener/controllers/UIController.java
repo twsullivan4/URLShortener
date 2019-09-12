@@ -6,19 +6,19 @@
  * 1.0.0   Tim Sullivan   Created
  * 1.1.0   Tim Sullivan   Commented
  * 1.2.0   Tim Sullivan   Added more complex link generation logic
+ * 1.3.0   Tim Sullivan   Removed REST endpoints into RESTController.java
  */
 
 package cloud.timsullivan.urlshortener.controllers;
 
 import java.net.MalformedURLException;
 import java.net.URL;
-import java.util.Hashtable;
-import java.util.Map;
-import java.util.Random;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -26,6 +26,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
+import org.springframework.web.client.RestTemplate;
 import org.springframework.web.servlet.view.RedirectView;
 
 /**
@@ -43,51 +44,6 @@ public class UIController {
 	 * Send class logging information to the Spring logger
 	 */
 	private Logger logger = LoggerFactory.getLogger(UIController.class);
-
-	/**
-	 * Holds the address or name of the host for generating links
-	 */
-	@Value("${SERVICE_HOST}")
-	private String serviceHost;
-
-	/**
-	 * Holds the port of the service for generating links
-	 * Defaults to an empty string if not configured
-	 */
-	@Value("${SERVICE_PORT:}")
-	private String servicePort;
-	
-	/**
-	 * Contains our shortened URLS in memory
-	 */
-	private Hashtable<String, URL> lookupTable = new Hashtable<String, URL>();
-
-	/**
-	 * Generate a short string of random alphanumeric characters
-	 * The total number of possibilities is 62^8 = alphabet size ^ number of positions
-	 * @return A random string that is not currently in the lookup table
-	 */
-	private String randomShortString() {
-		String chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890";
-        StringBuilder output;
-        Random r = new Random();
-		do {
-			output = new StringBuilder();
-			while (output.length() < 8) { // length of the random string.
-				int index = r.nextInt(chars.length());
-				output.append(chars.charAt(index));
-			}
-		} while (this.lookupTable.containsKey(output.toString()));
-		return output.toString();
-	}
-	
-	private String generateURLFromShortened(String id) {
-		if (servicePort != null && !servicePort.isEmpty()) {
-			return "http://" + this.serviceHost + ":" + this.servicePort + "/" + id + "/";
-		} else {
-			return "http://" + this.serviceHost + "/" + id + "/";
-		}
-	}
 
 	/**
 	 * HTTP GET "/"
@@ -126,22 +82,16 @@ public class UIController {
 			URL url = new URL(stringURL);
 			logger.info("URL object: " + url.toString());
 
-			if (this.lookupTable.containsValue(url)) {
-				for (Map.Entry<String, URL> entry: this.lookupTable.entrySet()) {
-					if(entry.getValue().equals(url)) {
-						model.addAttribute("url", this.generateURLFromShortened(entry.getKey()));
-						break;
-					}
-				}
-				model.addAttribute("message", "The requested URL is already registered with this service");
-				return "error";
+			RestTemplate restService = new RestTemplate();
+			HttpEntity<URL> request = new HttpEntity<URL>(url);
+			ResponseEntity<URL> result = restService.postForEntity("http://localhost:8080/rest/shorten", request, URL.class);
 
-			} else {
-				String shortenedURL = this.randomShortString();
-				this.lookupTable.put(shortenedURL, url);
-				model.addAttribute("url", this.generateURLFromShortened(shortenedURL));
+			if (result.getStatusCode() == HttpStatus.OK) {
+				model.addAttribute("url", result.getBody().toString());
 				return "result";
-
+			} else {
+				model.addAttribute("message", "An internal server error occurred");
+				return "error";
 			}
 
 		} catch (MalformedURLException e) {
@@ -159,9 +109,11 @@ public class UIController {
 	@GetMapping("/{id}/")
 	@ResponseBody
 	public RedirectView resolveURL(@PathVariable("id") String id) {
-		if (this.lookupTable.containsKey(id)) {
-			logger.info("Resolved: " + this.lookupTable.get(id).toString());
-			return new RedirectView(this.lookupTable.get(id).toString());
+		RestTemplate restService = new RestTemplate();
+		ResponseEntity<URL> result = restService.getForEntity("http://localhost:8080/rest/{id}/", URL.class, id);
+
+		if (result.getStatusCode() == HttpStatus.OK) {
+			return new RedirectView(result.getBody().toString());
 		} else {
 			return new RedirectView("/notFound");
 		}
