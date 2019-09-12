@@ -4,6 +4,7 @@
  * 
  * Revision History:
  * 1.0.0   Tim Sullivan   Created
+ * 1.1.0   Tim Sullivan   Commented
  */
 
 package cloud.timsullivan.urlshortener.controllers;
@@ -36,13 +37,28 @@ import org.springframework.web.servlet.view.RedirectView;
 @Controller
 public class UIController {
 
+	/**
+	 * Send class logging information to the Spring logger
+	 */
 	private Logger logger = LoggerFactory.getLogger(UIController.class);
 
+	/**
+	 * Holds the address of the host for generating links
+	 * Configured in application.properties
+	 */
 	@Value("${urlshortener.servicehost}")
 	private String serviceHost;
-    
+	
+	/**
+	 * 
+	 */
 	private Hashtable<String, URL> lookupTable = new Hashtable<String, URL>();
 
+	/**
+	 * Generate a short string of random alphanumeric characters
+	 * The total number of possibilities is 62^8 = alphabet size ^ number of positions
+	 * @return A random string that is not currently in the lookup table
+	 */
 	private String randomShortString() {
 		String chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890";
         StringBuilder output;
@@ -57,12 +73,23 @@ public class UIController {
 		return output.toString();
     }
 
+	/**
+	 * HTTP GET "/"
+	 * Land the user on an interface page to submit a link for shortening
+	 * @return A String pointing to the Thymeleaf "main.html" template
+	 */
     @GetMapping("/")
     public String landingPage() {
 		// Thymeleaf view: directs the user to the page of this name
         return "main";
 	}
 	
+	/**
+	 * HTTP GET "/notFound"
+	 * Generates an error page that the requested URL is not registered
+	 * @param model A container for data to send to the Thymeleaf template for rendering
+	 * @return A String pointing to the Thymeleaf "error.html" template
+	 */
 	@GetMapping("/notFound")
 	public String notFound(Model model) {
 		model.addAttribute("message", "The requested URL is not registered with this service");
@@ -71,6 +98,13 @@ public class UIController {
 		return "error";
 	}
 
+	/**
+	 * HTTP POST "/shorten"
+	 * Request a new shortened URL to redirect to the requested URL
+	 * @param stringURL The URL to shorten, encoded as a string
+	 * @param model A container for data to send to the Thymeleaf template for rendering
+	 * @return A string pointing to the Thymeleaf "result.html" or "error.html" pages
+	 */
 	@PostMapping("/shorten")
 	public String storeURL(@RequestParam("url") String stringURL, Model model) {
 		try {
@@ -98,6 +132,12 @@ public class UIController {
 		}
 	}
 
+	/**
+	 * HTTP GET "/{id}/"
+	 * Resolve a shortened URL and redirect to the result (or not found)
+	 * @param id The shortened ID that indexes the target URL
+	 * @return A redirect to the target page, or the not found page
+	 */
 	@GetMapping("/{id}/")
 	@ResponseBody
 	public RedirectView resolveURL(@PathVariable("id") String id) {
