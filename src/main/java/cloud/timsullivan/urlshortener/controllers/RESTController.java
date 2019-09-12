@@ -4,6 +4,7 @@
  * 
  * Revision History:
  * 1.3.0   Tim Sullivan   Created
+ * 1.3.1   Tim Sullivan   Added throttling
  */
 
 package cloud.timsullivan.urlshortener.controllers;
@@ -13,6 +14,10 @@ import java.net.URL;
 import java.util.Hashtable;
 import java.util.Map;
 import java.util.Random;
+import java.util.concurrent.TimeUnit;
+
+import com.weddini.throttling.Throttling;
+import com.weddini.throttling.ThrottlingType;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -97,6 +102,7 @@ public class RESTController {
 	 * @return An HTTP response (200 OK, URL), or (404 NOT FOUND, null)
 	 */
     @GetMapping("/rest/{id}/")
+    @Throttling(limit = 2, timeUnit = TimeUnit.SECONDS, type = ThrottlingType.RemoteAddr)
     public ResponseEntity<URL> getURL(@PathVariable("id") String id) {
         if (this.lookupTable.containsKey(id)) {
 			return new ResponseEntity<URL>(this.lookupTable.get(id), HttpStatus.OK);
@@ -112,7 +118,8 @@ public class RESTController {
 	 * @param model A container for data to send to the Thymeleaf template for rendering
 	 * @return An HTTP response (200 OK, URL), or (404 NOT FOUND, null), or (500 INTERNAL SERVER ERROR, null)
 	 */
-	@PostMapping("/rest/shorten")
+    @PostMapping("/rest/shorten")
+    @Throttling(limit = 2, timeUnit = TimeUnit.SECONDS, type = ThrottlingType.RemoteAddr)
 	public ResponseEntity<URL> storeURL(@RequestBody URL url) {
 		try {
 			if (this.lookupTable.containsValue(url)) {

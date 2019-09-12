@@ -2,7 +2,7 @@
 
 |Version|Date|Author|
 |---|---|---|
-|1.3.0|09/11/2019|Timothy Sullivan|
+|1.3.1|09/12/2019|Timothy Sullivan|
 
 This project demonstrates a RESTful API microservice in Java using:
 * JDK 8

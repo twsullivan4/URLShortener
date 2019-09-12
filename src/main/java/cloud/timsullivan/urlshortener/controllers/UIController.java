@@ -7,12 +7,17 @@
  * 1.1.0   Tim Sullivan   Commented
  * 1.2.0   Tim Sullivan   Added more complex link generation logic
  * 1.3.0   Tim Sullivan   Removed REST endpoints into RESTController.java
+ * 1.3.1   Tim Sullivan   Added throttling
  */
 
 package cloud.timsullivan.urlshortener.controllers;
 
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.util.concurrent.TimeUnit;
+
+import com.weddini.throttling.Throttling;
+import com.weddini.throttling.ThrottlingType;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -50,7 +55,8 @@ public class UIController {
 	 * Land the user on an interface page to submit a link for shortening
 	 * @return A String pointing to the Thymeleaf "main.html" template
 	 */
-    @GetMapping("/")
+	@GetMapping("/")
+	@Throttling(limit = 2, timeUnit = TimeUnit.SECONDS, type = ThrottlingType.RemoteAddr)
     public String landingPage() {
         return "main";
 	}
@@ -62,6 +68,7 @@ public class UIController {
 	 * @return A String pointing to the Thymeleaf "error.html" template
 	 */
 	@GetMapping("/notFound")
+	@Throttling(limit = 2, timeUnit = TimeUnit.SECONDS, type = ThrottlingType.RemoteAddr)
 	public String notFound(Model model) {
 		model.addAttribute("message", "The requested URL is not registered with this service");
 		return "error";
@@ -75,6 +82,7 @@ public class UIController {
 	 * @return A string pointing to the Thymeleaf "result.html" or "error.html" pages
 	 */
 	@PostMapping("/shorten")
+	@Throttling(limit = 2, timeUnit = TimeUnit.SECONDS, type = ThrottlingType.RemoteAddr)
 	public String storeURL(@RequestParam("url") String stringURL, Model model) {
 		try {
 
@@ -107,6 +115,7 @@ public class UIController {
 	 * @return A redirect to the target page, or the not found page
 	 */
 	@GetMapping("/{id}/")
+	@Throttling(limit = 2, timeUnit = TimeUnit.SECONDS, type = ThrottlingType.RemoteAddr)
 	@ResponseBody
 	public RedirectView resolveURL(@PathVariable("id") String id) {
 		RestTemplate restService = new RestTemplate();
