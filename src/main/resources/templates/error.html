@@ -4,6 +4,9 @@
     </head>
     <body>
         <h1>Error:</h1>
-        <p th:text="${message}">
+        <p th:text="${message}"></p>
+        <div th:if="${url}">
+            <p>Existing URL: <a th:text="${url}" th:href="@{${url}}"></a></p>
+        </div>
     </body>
 </html>

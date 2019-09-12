@@ -5,6 +5,7 @@
  * Revision History:
  * 1.0.0   Tim Sullivan   Created
  * 1.1.0   Tim Sullivan   Commented
+ * 1.2.0   Tim Sullivan   Added more complex link generation logic
  */
 
 package cloud.timsullivan.urlshortener.controllers;
@@ -12,6 +13,7 @@ package cloud.timsullivan.urlshortener.controllers;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.Hashtable;
+import java.util.Map;
 import java.util.Random;
 
 import org.slf4j.Logger;
@@ -43,14 +45,20 @@ public class UIController {
 	private Logger logger = LoggerFactory.getLogger(UIController.class);
 
 	/**
-	 * Holds the address of the host for generating links
-	 * Configured in application.properties
+	 * Holds the address or name of the host for generating links
 	 */
-	@Value("${urlshortener.servicehost}")
+	@Value("${SERVICE_HOST}")
 	private String serviceHost;
+
+	/**
+	 * Holds the port of the service for generating links
+	 * Defaults to an empty string if not configured
+	 */
+	@Value("${SERVICE_PORT:}")
+	private String servicePort;
 	
 	/**
-	 * 
+	 * Contains our shortened URLS in memory
 	 */
 	private Hashtable<String, URL> lookupTable = new Hashtable<String, URL>();
 
@@ -69,9 +77,17 @@ public class UIController {
 				int index = r.nextInt(chars.length());
 				output.append(chars.charAt(index));
 			}
-		} while (lookupTable.containsKey(output.toString()));
+		} while (this.lookupTable.containsKey(output.toString()));
 		return output.toString();
-    }
+	}
+	
+	private String generateURLFromShortened(String id) {
+		if (servicePort != null && !servicePort.isEmpty()) {
+			return "http://" + this.serviceHost + ":" + this.servicePort + "/" + id + "/";
+		} else {
+			return "http://" + this.serviceHost + "/" + id + "/";
+		}
+	}
 
 	/**
 	 * HTTP GET "/"
@@ -80,7 +96,6 @@ public class UIController {
 	 */
     @GetMapping("/")
     public String landingPage() {
-		// Thymeleaf view: directs the user to the page of this name
         return "main";
 	}
 	
@@ -93,8 +108,6 @@ public class UIController {
 	@GetMapping("/notFound")
 	public String notFound(Model model) {
 		model.addAttribute("message", "The requested URL is not registered with this service");
-
-		// Thymeleaf view: directs the user to the page of this name
 		return "error";
 	}
 
@@ -108,26 +121,31 @@ public class UIController {
 	@PostMapping("/shorten")
 	public String storeURL(@RequestParam("url") String stringURL, Model model) {
 		try {
+
 			logger.info("Input string: " + stringURL);
 			URL url = new URL(stringURL);
 			logger.info("URL object: " + url.toString());
-			if (lookupTable.containsValue(url)) {
+
+			if (this.lookupTable.containsValue(url)) {
+				for (Map.Entry<String, URL> entry: this.lookupTable.entrySet()) {
+					if(entry.getValue().equals(url)) {
+						model.addAttribute("url", this.generateURLFromShortened(entry.getKey()));
+						break;
+					}
+				}
 				model.addAttribute("message", "The requested URL is already registered with this service");
-
-				// Thymeleaf view: directs the user to the page of this name
 				return "error";
-			} else {
-				String shortenedURL = randomShortString();
-				lookupTable.put(shortenedURL, url);
-				model.addAttribute("url", "http://" + serviceHost + "/" + shortenedURL + "/");
 
-				// Thymeleaf view: directs the user to the page of this name
+			} else {
+				String shortenedURL = this.randomShortString();
+				this.lookupTable.put(shortenedURL, url);
+				model.addAttribute("url", this.generateURLFromShortened(shortenedURL));
 				return "result";
+
 			}
+
 		} catch (MalformedURLException e) {
 			model.addAttribute("message", "The requested URL is malformed");
-
-			// Thymeleaf view: directs the user to the page of this name
 			return "error";
 		}
 	}
@@ -141,9 +159,9 @@ public class UIController {
 	@GetMapping("/{id}/")
 	@ResponseBody
 	public RedirectView resolveURL(@PathVariable("id") String id) {
-		if (lookupTable.containsKey(id)) {
-			logger.info("Resolved: " + lookupTable.get(id).toString());
-			return new RedirectView(lookupTable.get(id).toString());
+		if (this.lookupTable.containsKey(id)) {
+			logger.info("Resolved: " + this.lookupTable.get(id).toString());
+			return new RedirectView(this.lookupTable.get(id).toString());
 		} else {
 			return new RedirectView("/notFound");
 		}

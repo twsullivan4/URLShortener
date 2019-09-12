@@ -1,6 +1,5 @@
 TODO:
 
-* Return the URL of already registered links
 * HTTPS
 * UTF-8 encode the URL
 * REST API spec
@@ -11,6 +10,7 @@ TODO:
 
 Done:
 
+* ~~Return the URL of already registered links~~ (1.2.0)
 * ~~Docker pre-build Maven to reduce initialization time~~ (1.1.0)
 * ~~Containerize~~ (1.1.0)
   * ~~Using the container's address, return a valid short URL, not just the ID~~
